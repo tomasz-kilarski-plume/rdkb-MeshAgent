@@ -53,6 +53,8 @@
 #include "cosa_webconfig_api.h"
 #include "safec_lib_common.h"
 #include "secure_wrapper.h"
+#include "ethpod_error_det.h"
+#include "cosa_mesh_parodus.h"
 
 #ifdef MESH_OVSAGENT_ENABLE
 #include "OvsAgentApi.h"
@@ -99,6 +101,7 @@ const int MAX_MESSAGES=10;  // max number of messages the can be in the queue
 #define RADIO_STATUS_50  "Device.WiFi.Radio.2.Status"
 #define STATE_DOWN "Down"
 #define STATE_FALSE "false"
+#define LS_READ_TIMEOUT_MS 2000
 
 static bool isPaceXF3 = false;
 bool isXB3Platform = false;
@@ -219,9 +222,12 @@ void changeChBandwidth( int, int);
 static void Mesh_ModifyPodTunnel(MeshTunnelSet *conf);
 static void Mesh_ModifyPodTunnelVlan(MeshTunnelSetVlan *conf);
 BOOL is_configure_wifi_enabled();
+void initparodusTask();
 
 static char EthPodMacs[MAX_POD_COUNT][MAX_MAC_ADDR_LEN];
 static int eth_mac_count = 0;
+
+static ssize_t leaseServerRead(int fd, MeshNotify* notify, int timeout);
 
 int Get_MeshSyncType(char * name ,eMeshSyncType *type_ptr)
 {
@@ -633,6 +639,11 @@ void Mesh_ProcessSyncMessage(MeshSync rxMsg)
     case MESH_ETHERNET_MAC_LIST:
     {
       int rc = -1;
+
+      if(meshAddPod(rxMsg.data.ethMac.mac) == false) {
+          MeshError("Failed to add pod to state list\n");
+      }
+
       if( g_pMeshAgent->PodEthernetBackhaulEnable)
       {
           rc= v_secure_system( ETHBHAUL_SWITCH " -eb_enable");
@@ -748,10 +759,9 @@ static void* leaseServer(void *data)
    errno_t rc=-1;
    int Socket;
    MeshNotify rxBuf;
+   int ret = 0;
    memset(&rxBuf, 0, sizeof(MeshNotify));
    struct sockaddr_in serverAddr;
-   struct sockaddr_storage serverStorage;
-   socklen_t addr_size;
    char atomIP[32] = {0};
    int msgType = 0;
    FILE *cmd = NULL;
@@ -795,23 +805,31 @@ static void* leaseServer(void *data)
        return NULL;
    }
 
-   addr_size = sizeof serverStorage;
+   while(1)
+   {
+     ret = leaseServerRead(Socket, &rxBuf, LS_READ_TIMEOUT_MS);
+     if(ret == 0)
+     {
+         meshHandleTimeout();
+         continue;
+     }
 
-   while(1) {
-     recvfrom(Socket,(char *)&rxBuf,sizeof(MeshNotify),0,(struct sockaddr *)&serverStorage, &addr_size);
      if(gdoNtohl)
       msgType = (int)ntohl(rxBuf.msgType);
      else
       msgType = (int)(rxBuf.msgType);
      if(msgType > POD_MAX_MSG)
       Mesh_sendDhcpLeaseUpdate( msgType, rxBuf.lease.mac, rxBuf.lease.ipaddr, rxBuf.lease.hostname, rxBuf.lease.fingerprint);
-     else if( msgType == POD_XHS_PORT)
+     else if( msgType == POD_XHS_PORT) {
       MeshWarning("Pod is connected on XHS ethernet Port, Unplug and plug in to different one\n");
-     else if( msgType == POD_ETH_PORT)
+      notifyEvent(ERROR, EB_XHS_PORT, rxBuf.eth_msg.pod_mac);
+     } else if( msgType == POD_ETH_PORT) {
       MeshWarning("Pod is non operational on ethernet port while Ethernet bhaul feature is not enabled\n");
-     else if( msgType == POD_ETH_BHAUL)
+      notifyEvent(ERROR, EB_RFC_DISABLED, rxBuf.eth_msg.pod_mac);
+     } else if( msgType == POD_BHAUL_CHANGE)
      {
       MeshInfo("Pod link change detected\n");
+      meshHandleEvent(rxBuf.eth_msg.pod_mac, DHCP_ACK_BHAUL_EVENT);
       Mesh_logLinkChange();
      }
      else if( msgType == POD_MAC_POLL)
@@ -822,14 +840,63 @@ static void* leaseServer(void *data)
      else if( msgType == POD_CREATE_TUNNEL)
      {
       MeshInfo("Ethernet pod detected, creating GRE tunnels for the same %s %s %s\n" , rxBuf.tunnel.podmac, rxBuf.tunnel.podaddr, rxBuf.tunnel.dev);
+      meshHandleEvent(rxBuf.eth_msg.pod_mac, DHCP_ACK_VLAN_EVENT);
       Mesh_EthPodTunnel(&rxBuf.tunnel);
+     }
+     else if(msgType == POD_PRIV)
+     {
+         meshHandleEvent(rxBuf.eth_msg.pod_mac, DHCP_ACK_PRIV_EVENT);
      }
      else
       MeshError("%s : Unknown Msg = %d\n", __FUNCTION__, msgType);
     }
-     
+
     return NULL;
 }
+
+ssize_t leaseServerRead(int fd, MeshNotify* notify, int timeout)
+{
+    int ret = 0;
+    ssize_t len = 0;
+    fd_set read_flags;
+    struct timeval tv = {0};
+
+    tv.tv_sec = timeout / 1000;
+    tv.tv_usec = (timeout % 1000) * 1000;
+
+    FD_ZERO(&read_flags);
+    FD_SET(fd, &read_flags);
+
+    ret = select(fd + 1, &read_flags, NULL, NULL, &tv);
+    if(ret == 0){
+        return 0; 
+    }
+    else if(ret < 0){
+        MeshError("Select socket::error=%s|errno=%d\n", strerror(errno), errno);
+        return -2; 
+    }
+
+    if (FD_ISSET(fd, &read_flags))
+    {
+        FD_CLR(fd, &read_flags);
+
+        memset(notify, 0, sizeof(MeshNotify));
+        len = recv(fd, (void*)notify, sizeof(MeshNotify), 0);
+        if(len <= 0){
+            if(len < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)){
+                MeshInfo("No data received from socket::error=%s|errno=%d\n",
+                    strerror(errno), errno);
+                return 0; // TODO: Use more meaningful code
+            }
+
+            MeshError("Socket fd=%d connection was closed. Len: %zd\n", fd, len);
+            return -3; // TODO: Use more meaningful code
+        }
+    }
+
+    return len;
+}
+
 #if defined(ENABLE_MESH_SOCKETS)
 
 /**
@@ -2725,6 +2792,10 @@ bool Mesh_UpdateConnectedDevice(char *mac, char *iface, char *host, char *status
     // Notify plume
     // Set sync message type
     if( Mesh_PodAddress(mac, FALSE)) {
+        /** Update Eth Bhaul SM **/
+        if( (strcmp(status, "Offline") == 0) && (strcmp(iface, "Ethernet") == 0) ) {
+            meshHandleEvent(mac, POD_DC_EVENT);
+        }
      MeshInfo("Skipping pod connect event to plume cloud | mac=%s\n", mac);
      return false;
     }
@@ -4390,6 +4461,7 @@ int Mesh_Init(ANSC_HANDLE hThisObject)
     } 
     // Start message queue client thread (Communications to/from RDKB CcspWifiSsp)
 
+    initparodusTask();
     // MeshInfo("Exiting from %s\n",__FUNCTION__);
     return status;
 }

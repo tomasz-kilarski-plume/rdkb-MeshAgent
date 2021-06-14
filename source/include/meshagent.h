@@ -36,15 +36,33 @@
 #define MeshWarning(...)                 _MESHAGENT_LOG(MESHAGENT_LOG_WARNING, __VA_ARGS__)
 #define MeshDebug(...)                   _MESHAGENT_LOG(MESHAGENT_LOG_DEBUG, __VA_ARGS__)
 
-
 typedef enum {
-  POD_XHS_PORT=0,
-  POD_ETH_PORT,
-  POD_ETH_BHAUL,
-  POD_MAC_POLL,
-  POD_CREATE_TUNNEL,
-  POD_MAX_MSG,
+    POD_XHS_PORT=0,    //Send Event to meshAgent, once Pod is connected on XHS port
+    POD_ETH_PORT,      //Send Event to meshAgent, once Pod is connected on non supported port
+    POD_PRIV,     //Send Event to meshAgent, once DHCP ACK on 10.0.0.x sent
+    POD_CREATE_TUNNEL, //Send Event to meshAgent, once DHCP ACK on 169.254.85.x sent
+    POD_BHAUL_CHANGE,  //Send Event to meshAgent, once DHCP ACK on 192.168.245.x sent
+    POD_MAC_POLL,      //Send Event to meshAgent, dnsmasq polls for the ethernet mac addr of Pod
+    POD_MAX_MSG,
+    DHCP_ADD_LEASE = 19,
+    REMOVE_LEASE,
+    UPDATE_LEASE
 } detectionMsg;
+
+
+typedef enum event_id {
+    EB_RFC_DISABLED, //When ethernet bhaul RFC is disabled but still pod is connected over ethernet.
+    EB_XHS_PORT,     //When pod is connected to etherent port configured for XHS.
+    EB_GENERIC_ISSUE, //To cover issues like wrong switch(not supporting vlan passthrough), link down, power cycle of switch etc..
+    EVENT_ID_MAX,
+} pod_event_id;
+
+typedef enum event_type {
+    ERROR, //When device wants to send error notification
+    INFO,  //When device wants to send valid info event notification
+    EVENT_TYPE_MAX,
+} pod_event_type;
+
 
 /**
  * @brief Initializes the Message Bus and registers component with the stack.

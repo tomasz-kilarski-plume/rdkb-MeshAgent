@@ -17,3 +17,7 @@
 # limitations under the License.
 ##########################################################################
 SUBDIRS = MeshAgentSsp MeshAgentCore
+
+if WITH_GTEST_SUPPORT
+SUBDIRS += test
+endif

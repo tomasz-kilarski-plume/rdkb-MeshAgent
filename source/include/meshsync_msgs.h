@@ -391,10 +391,15 @@ typedef struct _MeshSync {
     } data;
 } MeshSync;
 
+typedef struct _EthPodMsg {
+    char        pod_mac[MAX_MAC_ADDR_LEN];
+} EthPodMsg;
+
 typedef struct _MeshNotify {
    union {
     MeshWifiDhcpLease        lease;
-    PodTunnel		     tunnel; 
+    PodTunnel                tunnel; 
+    EthPodMsg                eth_msg;
    };
    int msgType;
 } MeshNotify;
