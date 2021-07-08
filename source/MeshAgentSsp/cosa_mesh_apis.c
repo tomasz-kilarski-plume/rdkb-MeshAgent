@@ -389,7 +389,7 @@ static bool Mesh_PodAddress(char *mac, bool add)
   }
 
   strlength = strlen( mac );
-  for(i =0; i <= eth_mac_count; i++)
+  for(i =0; i < eth_mac_count; i++)
   {
    rc = strcmp_s(mac, strlength ,EthPodMacs[i] ,&ind);
    ERR_CHK(rc);       
@@ -470,7 +470,7 @@ static int Mesh_getEthPodIndex(char *cmac)
 {
  int i=0;
  int ret = -1;
- for(i =0; i <= eth_mac_count; i++)
+ for(i =0; i < eth_mac_count; i++)
  {
   if(!strcmp(cmac, EthPodMacs[i]))
    return i;
@@ -480,10 +480,17 @@ static int Mesh_getEthPodIndex(char *cmac)
 static void Mesh_SendPodAddresses()
 {
  int i=0;
- for(i =0; i <= eth_mac_count; i++)
+ bool macPresent = false;
+ for(i=0; i < eth_mac_count; i++)
  {
   MeshInfo("Send pod address %s to dnsmasq %s\n", EthPodMacs[i], __FUNCTION__);
   Mesh_SendEthernetMac( EthPodMacs[i]);
+  macPresent = true;
+ }
+
+ if( !macPresent && g_pMeshAgent->PodEthernetBackhaulEnable) {
+  MeshWarning("Potential issue of lost Pod mac-addresses, Resync from the RM again\n");
+  Mesh_sendRFCUpdate("PodEthernetGreBackhaul.Enable", "true", rfc_boolean);
  }
 }
 
@@ -850,8 +857,14 @@ static void* leaseServer(void *data)
       MeshWarning("Pod is connected on XHS ethernet Port, Unplug and plug in to different one\n");
       notifyEvent(ERROR, EB_XHS_PORT, rxBuf.eth_msg.pod_mac);
      } else if( msgType == POD_ETH_PORT) {
-      MeshWarning("Pod is non operational on ethernet port while Ethernet bhaul feature is not enabled\n");
-      notifyEvent(ERROR, EB_RFC_DISABLED, rxBuf.eth_msg.pod_mac);
+      if( !g_pMeshAgent->PodEthernetBackhaulEnable) {
+        MeshWarning("Pod is non operational on ethernet port while Ethernet bhaul feature is disabled\n");
+        notifyEvent(ERROR, EB_RFC_DISABLED, rxBuf.eth_msg.pod_mac);
+      }
+      else {
+        MeshWarning("Potential Dnsmasq and meshAgent sync issue, resync with sending the pod addresses again\n");
+        Mesh_SendPodAddresses();
+      }
      } else if( msgType == POD_BHAUL_CHANGE)
      {
       MeshInfo("Pod link change detected\n");
