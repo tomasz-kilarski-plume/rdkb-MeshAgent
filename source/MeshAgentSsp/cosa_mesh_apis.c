@@ -692,6 +692,16 @@ static void Mesh_EthPodTunnel(PodTunnel *tunnel)
     int rc = -1;
     int PodIdx = Mesh_getEthPodIndex(tunnel->podmac);
 
+    if(isXB3Platform) {
+        MeshInfo("%s Trigger to create tunnel in XB3 platform\n", __FUNCTION__);
+        rc= v_secure_system( ETHBHAUL_SWITCH " -gre %d %s", PodIdx, tunnel->podaddr);
+        if (!WIFEXITED(rc) || WEXITSTATUS(rc) != 0)
+        {
+            MeshError("%s -eb_enable : Ethernet backhaul gre failed = %d\n", ETHBHAUL_SWITCH, WEXITSTATUS(rc));
+        }
+        return;
+    }
+ 
     MeshInfo("ip link del ethpod%d; "
             "ip link add ethpod%d type gretap local %s remote %s dev %s tos 1; "
             "ifconfig ethpod%d up; "
