@@ -93,8 +93,9 @@ const int MAX_MESSAGES=10;  // max number of messages the can be in the queue
 #define LOCAL_HOST   "127.0.0.1"
 #define POD_LINK_SCRIPT "/usr/ccsp/wifi/mesh_status.sh"
 #define POD_IP_PREFIX   "192.168.245."
-#define XF3_PLATFORM "XF3"
-#define XB3_PLATFORM "XB3"
+#define XF3_PLATFORM  "XF3"
+#define XB3_PLATFORM  "XB3"
+#define HUB4_PLATFORM "HUB4"
 #define RADIO_ENABLE_24  "Device.WiFi.Radio.1.Enable"
 #define RADIO_ENABLE_50  "Device.WiFi.Radio.2.Enable"
 #define RADIO_STATUS_24  "Device.WiFi.Radio.1.Status"
@@ -104,6 +105,7 @@ const int MAX_MESSAGES=10;  // max number of messages the can be in the queue
 #define LS_READ_TIMEOUT_MS 2000
 
 static bool isPaceXF3 = false;
+static bool isSkyHUB4 = false;
 bool isXB3Platform = false;
 #define ETHBHAUL_SWITCH "/usr/sbin/deviceinfo.sh"
 #define MESH_BHAUL_BRIDGE "br403"
@@ -749,7 +751,7 @@ static void Mesh_EthPodTunnel(PodTunnel *tunnel)
             XHS_BR, PodIdx, XHS_VLAN, (isPaceXF3 ? LNF_BR_XF3 : LNF_BR), PodIdx, LNF_VLAN, WEXITSTATUS(rc));
     }
 
-    if(!gmssClamped) {
+    if( (!isSkyHUB4) && (!gmssClamped) ) {
         MeshInfo("TCP MSS for XHS is enabled \n");
         sysevent_set(sysevent_fd, sysevent_token, "eb_gre", "up", 0);
         sysevent_set(sysevent_fd, sysevent_token, "firewall-restart", NULL, 0);
@@ -1733,9 +1735,11 @@ void is_xf3_xb3_platform()
         isPaceXF3 = true;
     } else if (strncmp(XB3_PLATFORM, platform, sizeof(XB3_PLATFORM)) == 0) {
         isXB3Platform = true;
+    } else if (strncmp(HUB4_PLATFORM, platform, sizeof(HUB4_PLATFORM)) == 0) {
+        isSkyHUB4 = true;
     }
-    MeshInfo("platform check XF3:%d, XB3:%d\n",
-                    isPaceXF3, isXB3Platform);
+    MeshInfo("platform check XF3:%d, XB3:%d HUB4:%d\n",
+                    isPaceXF3, isXB3Platform, isSkyHUB4);
 }
 
 BOOL radio_check()
@@ -2016,7 +2020,8 @@ void Mesh_EBCleanup()
     {
         MeshError("%s -eb_disable : Ethernet backhaul disable failed = %d\n", ETHBHAUL_SWITCH, WEXITSTATUS(rc));
     }
-    if(gmssClamped) {
+
+    if( (!isSkyHUB4 ) && (gmssClamped) ) {
         MeshInfo("TCP MSS clamp for XHS is disabled\n");
         sysevent_set(sysevent_fd, sysevent_token, "eb_gre", "down", 0);
         sysevent_set(sysevent_fd, sysevent_token, "firewall-restart", NULL, 0);
