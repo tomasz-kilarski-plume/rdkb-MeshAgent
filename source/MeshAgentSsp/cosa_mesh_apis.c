@@ -192,7 +192,8 @@ MeshSync_MsgItem meshSyncMsgArr[] = {
     {MESH_ETHERNET_MAC_LIST,                "MESH_ETHERNET_MAC_LIST",               "process_eth_mac"},
     {MESH_RFC_UPDATE,                       "MESH_RFC_UPDATE",                      "eb_enable"},
     {MESH_TUNNEL_SET,                       "MESH_TUNNEL_SET",                      "tunnel"},
-    {MESH_TUNNEL_SET_VLAN,                  "MESH_TUNNEL_SET_VLAN",                 "tunnel_vlan"}};
+    {MESH_TUNNEL_SET_VLAN,                  "MESH_TUNNEL_SET_VLAN",                 "tunnel_vlan"},
+    {MESH_REDUCED_RETRY,                    "MESH_REDUCED_RETRY",                   "mesh_conn_opt_retry"}};
 typedef struct
 {
     eMeshIfaceType  mType;
@@ -218,6 +219,7 @@ static int  msgQSend(MeshSync *data);
 static void Mesh_SetDefaults(ANSC_HANDLE hThisObject);
 static bool Mesh_Register_sysevent(ANSC_HANDLE hThisObject);
 static void *Mesh_sysevent_handler(void *data);
+void Mesh_sendReducedRetry(bool value);
 int Mesh_Init(ANSC_HANDLE hThisObject);
 void Mesh_InitClientList();
 void changeChBandwidth( int, int);
@@ -1864,6 +1866,38 @@ BOOL is_bridge_mode_enabled()
 
 }
 
+bool meshSetMeshRetrySyscfg(bool enable)
+{
+    int i = 0;
+    bool success = false;
+
+    MeshInfo("%s Setting Optimized Mesh Retry enable in syscfg to %d\n", __FUNCTION__, enable);
+    if(Mesh_SysCfgSetStr(meshSyncMsgArr[MESH_REDUCED_RETRY].sysStr, (enable?"true":"false"), true) != 0)
+    {
+        MeshInfo("Failed to set the Optimized Mesh Retry Enable in syscfg, retrying 5 times\n");
+        for(i=0; i<5; i++)
+        {
+            if(!Mesh_SysCfgSetStr(meshSyncMsgArr[MESH_REDUCED_RETRY].sysStr, (enable?"true":"false"), true))
+            {
+                MeshInfo("Optimized Mesh Retry syscfg set passed in %d attempt\n", i+1);
+                success = true;
+                break;
+            }
+            else
+            {
+                MeshInfo("Optimized Mesh Retry syscfg set retrial failed in %d attempt\n", i+1);
+            }
+        }
+    }
+    else
+    {
+        MeshInfo("Optimized Mesh Retry enable set in the syscfg successfully\n");
+        success = true;
+    }
+
+    return success;
+}
+
 void meshSetEthbhaulSyscfg(bool enable)
 {
     int i =0;
@@ -2054,6 +2088,28 @@ bool Mesh_SetMeshEthBhaul(bool enable, bool init, bool commitSyscfg)
           Mesh_EBCleanup();
           Mesh_SendEthernetMac("00:00:00:00:00:00");
         }
+    }
+    return TRUE;
+}
+
+/**
+ * @brief Mesh Retry Connection Optimization Enable/Disable
+ *
+ * This function will enable/disable the Mesh Optimized connection retry
+ */
+bool Mesh_SetMeshRetryOptimized(bool enable, bool init, bool commitSyscfg)
+{
+    // If the enable value is different or this is during setup - make it happen.
+    if (init || Mesh_GetEnabled(meshSyncMsgArr[MESH_REDUCED_RETRY].sysStr) != enable)
+    {
+        MeshInfo("%s: mesh_conn_opt_retry Commit:%d, Enable:%d\n",
+            __FUNCTION__, commitSyscfg, enable);
+        if(commitSyscfg) {
+            meshSetMeshRetrySyscfg(enable);
+        }
+        g_pMeshAgent->MeshRetryOptimized = enable;
+        //Send this as an RFC update to plume manager
+        Mesh_sendReducedRetry(enable);
     }
     return TRUE;
 }
@@ -2753,6 +2809,38 @@ static void Mesh_SetDefaults(ANSC_HANDLE hThisObject)
         }
     }
 
+    out_val[0]='\0';
+    if(Mesh_SysCfgGetStr(meshSyncMsgArr[MESH_REDUCED_RETRY].sysStr, out_val, sizeof(out_val)) != 0)
+    {
+        MeshInfo("Syscfg error, Setting optimized mesh retry to default\n");
+        Mesh_SetMeshRetryOptimized(true,true,true);
+    }
+    else
+    {
+        rc = strcmp_s("true",strlen("true"),out_val,&ind);
+        ERR_CHK(rc);
+        if((ind == 0) && (rc == EOK))
+        {
+           MeshInfo("Setting initial optimized mesh retry mode to true\n");
+           Mesh_SetMeshRetryOptimized(true,true,false);
+        }
+        else
+        {
+           rc = strcmp_s("false",strlen("false"),out_val,&ind);
+           ERR_CHK(rc);
+           if((ind == 0) && (rc == EOK))
+           {
+              MeshInfo("Setting initial optimized mesh retry mode to false\n");
+              Mesh_SetMeshRetryOptimized(false,true,false);
+           }
+           else
+           {
+              MeshInfo("optimized mesh retry error from syscfg , setting default\n");
+              Mesh_SetMeshRetryOptimized(false,true,true);
+           }
+        }
+    }
+
     if(isXB3Platform)
     {
         out_val[0]='\0';
@@ -2864,6 +2952,22 @@ bool Mesh_UpdateConnectedDevice(char *mac, char *iface, char *host, char *status
 
     return true;
 }
+/**
+ * @brief Mesh Agent rfc sendReducedRetry  to plume managers
+ *
+ * This function will notify plume agent about RFC changes
+ */
+void Mesh_sendReducedRetry(bool value)
+{
+    // send out notification to plume
+    MeshSync mMsg = {0};
+    // Notify plume manager cm 
+    // Set sync message type
+    mMsg.msgType = MESH_REDUCED_RETRY;
+    mMsg.data.retryFlag.isenabled = value;
+    msgQSend(&mMsg);
+}
+
 
 /**
  * @brief Mesh Agent Send RFC parameter to plume managers

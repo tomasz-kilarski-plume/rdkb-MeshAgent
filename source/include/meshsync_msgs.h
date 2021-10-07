@@ -95,6 +95,7 @@ typedef enum {
     MESH_RFC_UPDATE,
     MESH_TUNNEL_SET,
     MESH_TUNNEL_SET_VLAN,
+    MESH_REDUCED_RETRY,
     MESH_SYNC_MSG_TOTAL
 } eMeshSyncType;
 
@@ -336,6 +337,10 @@ typedef struct _MeshRFCUpdate {
     eRfcType    type;
 } MeshRFCUpdate;
 
+typedef struct _MeshReducedRetry {
+    uint8_t         isenabled;
+} MeshReducedRetry;
+
 typedef struct _MeshTunnelSet {
     char        ifname[64];
     char        localIp[MAX_IP_LEN];
@@ -387,7 +392,8 @@ typedef struct _MeshSync {
         MeshEthMac			ethMac;
         MeshRFCUpdate			rfcUpdate; 
         MeshTunnelSet			tunnelSet; 
-        MeshTunnelSetVlan		tunnelSetVlan; 
+        MeshTunnelSetVlan		tunnelSetVlan;
+        MeshReducedRetry                retryFlag;
     } data;
 } MeshSync;
 

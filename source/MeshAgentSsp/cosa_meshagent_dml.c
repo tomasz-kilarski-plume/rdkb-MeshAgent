@@ -194,7 +194,7 @@ MeshAgent_GetParamBoolValue
 	*pBool = g_pMeshAgent->OpensyncEnable;
 	return TRUE;
     }
-        MeshWarning(("Unsupported parameter '%s'\n"), ParamName);
+    MeshWarning(("Unsupported parameter '%s'\n"), ParamName);
     return FALSE;
 }
 
@@ -303,7 +303,59 @@ OVS_GetParamBoolValue
      MeshWarning("Unsupported parameter '%s'\n", ParamName);
     return FALSE;
 }
+/**********************************************************************
 
+    caller:     owner of this object
+
+    prototype:
+
+        BOOL
+        MeshRetryReduction_GetParamBoolValue
+            (
+                ANSC_HANDLE                 hInsContext,
+                char*                       ParamName,
+                BOOL*                       pBool
+            );
+
+    description:
+
+        This function is called to retrieve Boolean parameter value for RFC MeshRetryReduction;
+
+    argument:   ANSC_HANDLE                 hInsContext,
+                The instance handle;
+
+                char*                       ParamName,
+                The parameter name;
+
+                BOOL*                       pBool
+                The buffer of returned boolean value;
+
+    return:     TRUE if succeeded.
+
+**********************************************************************/
+BOOL
+MeshRetryReduction_GetParamBoolValue
+    (
+        ANSC_HANDLE                 hInsContext,
+        char*                       ParamName,
+        BOOL*                       pBool
+    )
+{
+    UNREFERENCED_PARAMETER(hInsContext);
+    errno_t rc = -1;
+    int ind = -1;
+    /* check the parameter name and return the corresponding value */
+    rc = strcmp_s("Enable",strlen("Enable"),ParamName,&ind);
+    ERR_CHK(rc);
+    if( (ind == 0) && (rc == EOK))
+    {
+        *pBool = g_pMeshAgent->MeshRetryOptimized;
+        return TRUE;
+    }
+    else
+     MeshWarning("Unsupported parameter '%s'\n", ParamName);
+    return FALSE;
+}
 
 /**********************************************************************  
 
@@ -700,7 +752,60 @@ OVS_SetParamBoolValue
     return FALSE;
 }
 
+/**********************************************************************
 
+    caller:     owner of this object
+
+    prototype:
+
+        BOOL
+        MeshRetryReduction_SetParamBoolValue
+            (
+                ANSC_HANDLE                 hInsContext,
+                char*                       ParamName,
+                BOOL                        bValue
+            );
+
+    description:
+
+        This function is called to set BOOL parameter value for MeshRetryReduction
+
+    argument:   ANSC_HANDLE                 hInsContext,
+                The instance handle;
+
+                char*                       ParamName,
+                The parameter name;
+
+                BOOL                        bValue
+                The updated BOOL value;
+
+    return:     TRUE if succeeded.
+
+**********************************************************************/
+BOOL
+MeshRetryReduction_SetParamBoolValue
+    (
+        ANSC_HANDLE                 hInsContext,
+        char*                       ParamName,
+        BOOL                        bValue
+    )
+{
+    UNREFERENCED_PARAMETER(hInsContext);
+    errno_t rc = -1;
+    int ind = -1;
+
+    rc = strcmp_s("Enable",strlen("Enable"), ParamName,&ind);
+    ERR_CHK(rc);
+    if( (ind == 0) && (rc == EOK))
+    {
+        MeshInfo("MeshRetryOptimized flag set\n");
+        Mesh_SetMeshRetryOptimized(bValue,false,true);
+        return TRUE;
+    }
+    else
+     MeshWarning("Unsupported parameter '%s'\n", ParamName);
+    return FALSE;
+}
 
 /**********************************************************************
 
