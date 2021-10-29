@@ -189,7 +189,7 @@ ANSC_STATUS ssp_engage(PCCSP_COMPONENT_CFG pMeshCfg)
 	returnStatus = CcspComponentLoadDmXmlList(pMeshCfg->DmXmlCfgFileName, &pXmlCfgList);
     if ( returnStatus != ANSC_STATUS_SUCCESS )
     {   
-    	CcspTraceWarning(("Failed while loading MeshAgent Data MOdel returnStatus = %d\n",returnStatus));
+    	CcspTraceWarning(("Failed while loading MeshAgent Data MOdel returnStatus = %lu\n",returnStatus));
         return  returnStatus;
     }	
 

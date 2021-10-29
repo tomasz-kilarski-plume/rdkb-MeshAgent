@@ -1839,7 +1839,7 @@ BOOL is_bridge_mode_enabled()
 
     if(CCSP_Message_Bus_OK != ret)
     {
-         CcspTraceError(("%s CcspBaseIf_getParameterValues %s error %d\n", __FUNCTION__,paramNames[0],ret));
+         CcspTraceError(("%s CcspBaseIf_getParameterValues %s error %lu\n", __FUNCTION__,paramNames[0],ret));
          free_parameterValStruct_t(bus_handle, valNum, valStructs);
          return FALSE;
     }
