@@ -96,6 +96,7 @@ typedef enum {
     MESH_TUNNEL_SET,
     MESH_TUNNEL_SET_VLAN,
     MESH_REDUCED_RETRY,
+    MESH_WIFI_SSID_CHANGED,
     MESH_SYNC_MSG_TOTAL
 } eMeshSyncType;
 
@@ -170,6 +171,12 @@ typedef struct _MeshWifiSSIDName {
     uint32_t  index;                    // index [0-15]
     char      ssid[MAX_SSID_LEN];       // SSID
 } MeshWifiSSIDName;
+
+typedef struct _MeshWifiSSIDChanged {
+    uint32_t  index;                    // index [0-15]
+    uint8_t   enable;       // SSID
+    char      ssid[MAX_SSID_LEN];
+} MeshWifiSSIDChanged;
 
 /**
  * Mesh Sync Wifi SSID Advertise change message
@@ -374,6 +381,7 @@ typedef struct _MeshSync {
         MeshWifiRadioChannel            wifiRadioChannel;
         MeshWifiRadioChannelMode        wifiRadioChannelMode;
         MeshWifiSSIDName                wifiSSIDName;
+        MeshWifiSSIDChanged             wifiSSIDChanged;
         MeshWifiSSIDAdvertise           wifiSSIDAdvertise;
         MeshWifiAPSecurity              wifiAPSecurity;
         MeshWifiAPKickAssocDevice       wifiAPKickAssocDevice;

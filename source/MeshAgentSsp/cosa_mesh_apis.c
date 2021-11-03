@@ -193,7 +193,8 @@ MeshSync_MsgItem meshSyncMsgArr[] = {
     {MESH_RFC_UPDATE,                       "MESH_RFC_UPDATE",                      "eb_enable"},
     {MESH_TUNNEL_SET,                       "MESH_TUNNEL_SET",                      "tunnel"},
     {MESH_TUNNEL_SET_VLAN,                  "MESH_TUNNEL_SET_VLAN",                 "tunnel_vlan"},
-    {MESH_REDUCED_RETRY,                    "MESH_REDUCED_RETRY",                   "mesh_conn_opt_retry"}};
+    {MESH_REDUCED_RETRY,                    "MESH_REDUCED_RETRY",                   "mesh_conn_opt_retry"},
+    {MESH_WIFI_SSID_CHANGED,                "MESH_WIFI_SSID_CHANGED",               "wifi_SSIDChanged"}};
 typedef struct
 {
     eMeshIfaceType  mType;
@@ -535,6 +536,17 @@ void Mesh_ProcessSyncMessage(MeshSync rxMsg)
                 rxMsg.data.wifiSSIDName.ssid
         );
         Mesh_SyseventSetStr(meshSyncMsgArr[MESH_WIFI_SSID_NAME].sysStr, cmd, 0, false);
+    }
+    break;
+    case MESH_WIFI_SSID_CHANGED:
+    {
+        char cmd[256] = {0};
+        sprintf(cmd, "MESH|%d|%d|%s",
+                rxMsg.data.wifiSSIDChanged.index,
+                rxMsg.data.wifiSSIDChanged.enable,
+                rxMsg.data.wifiSSIDChanged.ssid
+        );
+        Mesh_SyseventSetStr(meshSyncMsgArr[MESH_WIFI_SSID_CHANGED].sysStr, cmd, 0, false);
     }
     break;
     case MESH_WIFI_SSID_ADVERTISE:
@@ -3192,6 +3204,7 @@ static void *Mesh_sysevent_handler(void *data)
 
     async_id_t wifi_init_asyncid;
     async_id_t wifi_ssidName_asyncid;
+    async_id_t wifi_ssidChanged_asyncid;
     async_id_t wifi_ssidAdvert_asyncid;
     async_id_t wifi_radio_channel_asyncid;
     async_id_t wifi_radio_channel_mode_asyncid;
@@ -3211,6 +3224,8 @@ static void *Mesh_sysevent_handler(void *data)
     sysevent_setnotification(sysevent_fd, sysevent_token, meshSyncMsgArr[MESH_WIFI_RESET].sysStr,                     &wifi_init_asyncid);
     sysevent_set_options(sysevent_fd,     sysevent_token, meshSyncMsgArr[MESH_WIFI_SSID_NAME].sysStr,                 TUPLE_FLAG_EVENT);
     sysevent_setnotification(sysevent_fd, sysevent_token, meshSyncMsgArr[MESH_WIFI_SSID_NAME].sysStr,                 &wifi_ssidName_asyncid);
+    sysevent_set_options(sysevent_fd,     sysevent_token, meshSyncMsgArr[MESH_WIFI_SSID_CHANGED].sysStr,              TUPLE_FLAG_EVENT);
+    sysevent_setnotification(sysevent_fd, sysevent_token, meshSyncMsgArr[MESH_WIFI_SSID_CHANGED].sysStr,              &wifi_ssidChanged_asyncid);
     sysevent_set_options(sysevent_fd,     sysevent_token, meshSyncMsgArr[MESH_WIFI_SSID_ADVERTISE].sysStr,            TUPLE_FLAG_EVENT);
     sysevent_setnotification(sysevent_fd, sysevent_token, meshSyncMsgArr[MESH_WIFI_SSID_ADVERTISE].sysStr,            &wifi_ssidAdvert_asyncid);
     sysevent_set_options(sysevent_fd,     sysevent_token, meshSyncMsgArr[MESH_WIFI_RADIO_CHANNEL_MODE].sysStr,        TUPLE_FLAG_EVENT);
@@ -3584,6 +3599,76 @@ static void *Mesh_sysevent_handler(void *data)
                                   MeshError("Error in copying WiFI ssid\n");
                             }
                             else{
+                                 valFound = true;
+                            }
+                            break;
+                        default:
+                            break;
+
+                        }
+                        token = strtok(NULL, delim);
+                        idx++;
+                    }
+
+                    if (valFound) {
+                        // We filled our data structure so we can send it off
+                        msgQSend(&mMsg);
+                    }
+                }
+            }
+            else if (ret_val == MESH_WIFI_SSID_CHANGED)
+            {
+                if ( val[0] != '\0')
+                {
+                    const char delim[2] = "|";
+                    char *token;
+                    int idx = 0;
+                    bool valFound = false;
+                    bool process = true;
+                    MeshSync mMsg = {0};
+
+                    // Set sync message type
+                    mMsg.msgType = MESH_WIFI_SSID_CHANGED;
+
+                    // grab the first token
+                    token = strtok(val, delim);
+
+                    while( token != NULL && process)
+                    {
+                        switch (idx)
+                        {
+                        case 0:
+                            // Parse message origin to see if we should process.
+                            // We only process RDK sysevent messages
+                            rc = strcmp_s("RDK", strlen("RDK"), token, &ind);
+                            ERR_CHK(rc);
+                            if ((ind != 0) && (rc == EOK))
+                            {
+                                process = false;
+                                continue;
+                            } else {
+                                MeshInfo("received notification event %s\n", name);
+                            }
+                            break;
+                        case 1:
+                            mMsg.data.wifiSSIDChanged.index = strtol(token,NULL,10);
+                            valFound = true;
+                            break;
+                        case 2:
+                            /*Coverity Fix CID:57710 PW.TOO_MANY_PRINTF_ARGS */
+                            mMsg.data.wifiSSIDChanged.enable = strtol(token,NULL,10);
+                            valFound = true;
+                            break;
+                        case 3:
+                            MeshInfo("ssid received\n");
+                            rc = strcpy_s(mMsg.data.wifiSSIDChanged.ssid, sizeof(mMsg.data.wifiSSIDChanged.ssid), token);
+                            if(rc != EOK)
+                            {
+                                  ERR_CHK(rc);
+                                  MeshError("Error in copying WiFI ssid\n");
+                            }
+                            else
+                            {
                                  valFound = true;
                             }
                             break;
