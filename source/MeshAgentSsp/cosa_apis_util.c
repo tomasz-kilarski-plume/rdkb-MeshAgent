@@ -213,7 +213,7 @@ int Mesh_SysCfgSetStr(const char *name, unsigned char *str_value, bool toArm)
 
         if (buf[0] != 0 && strlen(buf) > 0) {
             MeshDebug("Reported an ARM IP of %s \n", buf);
-            ret = v_secure_system("rpcclient %s syscfg set %s '%s'; syscfg commit", buf, name,str_value);
+            ret = v_secure_system("rpcclient %s \"syscfg set %s %s; syscfg commit\" &", buf, name,str_value);
             if(ret != 0) {
                 MeshDebug("Failure in executing command via v_secure_system. ret:[%d] \n", ret);
             }

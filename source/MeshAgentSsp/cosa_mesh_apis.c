@@ -1978,7 +1978,8 @@ void meshSetSyscfg(bool enable, bool commitSyscfg)
 
     MeshInfo("%s Commitsyscfg:%d Setting mesh enable in syscfg to %d\n",
         __FUNCTION__,commitSyscfg,enable);
-    if(commitSyscfg &&
+    // Always commit to syscfg DB in XB3 to keep the syscfg DB of Arm and Atom in sync
+    if((commitSyscfg || isXB3Platform) &&
         (Mesh_SysCfgSetStr(meshSyncMsgArr[MESH_WIFI_ENABLE].sysStr, (enable?"true":"false"), true) != 0)) {
          MeshInfo("Failed to set the Mesh Enable in syscfg, retrying 5 times\n");
          for(i=0; i<5; i++) {
