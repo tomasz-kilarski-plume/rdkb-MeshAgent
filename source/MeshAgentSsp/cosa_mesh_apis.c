@@ -2466,13 +2466,13 @@ void* handleMeshEnable(void *Args)
             /*Coverity Fix CID:69958 DC.STRING_BUFFER */
             snprintf(outBuf,sizeof(outBuf), "MESH|%s", meshWifiStatusArr[(enable?MESH_WIFI_STATUS_INIT:MESH_WIFI_STATUS_OFF)].mStr);
             Mesh_SyseventSetStr(meshSyncMsgArr[MESH_WIFI_STATUS].sysStr, outBuf, 0, true);
+	    last_set = enable;
         } else {
             MeshError("Error %d %s Mesh Wifi\n", err, (enable?"enabling":"disabling"));
             if ((err == 0x100) && (enable == TRUE)) {
             	t2_event_d("SYS_INFO_MESHWIFI_DISABLED", 1);
 	    }
         }
-   last_set = enable;
    if (!(bit_mask & 0x01))
    {
        meshError = error;
