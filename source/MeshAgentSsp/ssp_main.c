@@ -36,7 +36,6 @@
 #include "stdlib.h"
 #include "ccsp_dm_api.h"
 #include "meshagent.h"
-#include "ccsp_custom_logs.h"
 #include "safec_lib_common.h"
 #include "webconfig_framework.h"
 #include "print_uptime.h"
