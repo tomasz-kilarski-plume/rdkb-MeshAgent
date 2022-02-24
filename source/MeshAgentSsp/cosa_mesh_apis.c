@@ -194,7 +194,8 @@ MeshSync_MsgItem meshSyncMsgArr[] = {
     {MESH_TUNNEL_SET,                       "MESH_TUNNEL_SET",                      "tunnel"},
     {MESH_TUNNEL_SET_VLAN,                  "MESH_TUNNEL_SET_VLAN",                 "tunnel_vlan"},
     {MESH_REDUCED_RETRY,                    "MESH_REDUCED_RETRY",                   "mesh_conn_opt_retry"},
-    {MESH_WIFI_SSID_CHANGED,                "MESH_WIFI_SSID_CHANGED",               "wifi_SSIDChanged"}};
+    {MESH_WIFI_SSID_CHANGED,                "MESH_WIFI_SSID_CHANGED",               "wifi_SSIDChanged"},
+    {MESH_WIFI_EXTENDER_MODE,               "MESH_WIFI_EXTENDER_MODE",              "onewifi_XLE_Extender_mode"}};
 typedef struct
 {
     eMeshIfaceType  mType;
@@ -554,6 +555,15 @@ void Mesh_ProcessSyncMessage(MeshSync rxMsg)
                 rxMsg.data.wifiSSIDChanged.ssid
         );
         Mesh_SyseventSetStr(meshSyncMsgArr[MESH_WIFI_SSID_CHANGED].sysStr, cmd, 0, false);
+    }
+    break;
+    case MESH_WIFI_EXTENDER_MODE:
+    {
+        char cmd[256]={0};
+        snprintf(cmd, sizeof(cmd), "MESH|%s",
+                rxMsg.data.onewifiXLEExtenderMode.InterfaceName);
+        MeshError("Notify onewifi for MESH_WIFI_EXTENDER_MODE cmd:%s\n",cmd);
+        Mesh_SyseventSetStr(meshSyncMsgArr[MESH_WIFI_EXTENDER_MODE].sysStr, cmd, 0, false);
     }
     break;
     case MESH_WIFI_SSID_ADVERTISE:
@@ -1129,7 +1139,6 @@ static int msgQSend(MeshSync *data)
 {
     int i;
 
-    // MeshInfo("Entering into %s\n",__FUNCTION__);
     for (i = 0; i < MAX_CONNECTED_CLIENTS; i++)
     {
         int sd = clientSockets[i];
@@ -1147,7 +1156,6 @@ static int msgQSend(MeshSync *data)
         }
     }
 
-    // MeshInfo("Exiting from %s\n",__FUNCTION__);
     return 0;
 }
 #else
@@ -1248,7 +1256,6 @@ static void* msgQServer(void *data)
  */
 static int msgQSend(MeshSync *data)
 {
-    // MeshInfo("Entering into %s\n",__FUNCTION__);
     mqd_t qd_client;
     struct mq_attr attr;
 
@@ -1275,7 +1282,6 @@ static int msgQSend(MeshSync *data)
         MeshError("Error %d closing msgQueue to client\n", errno);
     }
 
-    // MeshInfo("Exiting from %s\n",__FUNCTION__);
     return 0;
 }
 #endif
@@ -3220,6 +3226,7 @@ static void *Mesh_sysevent_handler(void *data)
     async_id_t wifi_init_asyncid;
     async_id_t wifi_ssidName_asyncid;
     async_id_t wifi_ssidChanged_asyncid;
+    async_id_t onewifi_xle_extender_mode_asyncid;
     async_id_t wifi_ssidAdvert_asyncid;
     async_id_t wifi_radio_channel_asyncid;
     async_id_t wifi_radio_channel_mode_asyncid;
@@ -3241,6 +3248,8 @@ static void *Mesh_sysevent_handler(void *data)
     sysevent_setnotification(sysevent_fd, sysevent_token, meshSyncMsgArr[MESH_WIFI_SSID_NAME].sysStr,                 &wifi_ssidName_asyncid);
     sysevent_set_options(sysevent_fd,     sysevent_token, meshSyncMsgArr[MESH_WIFI_SSID_CHANGED].sysStr,              TUPLE_FLAG_EVENT);
     sysevent_setnotification(sysevent_fd, sysevent_token, meshSyncMsgArr[MESH_WIFI_SSID_CHANGED].sysStr,              &wifi_ssidChanged_asyncid);
+    sysevent_set_options(sysevent_fd,     sysevent_token, meshSyncMsgArr[MESH_WIFI_EXTENDER_MODE].sysStr,              TUPLE_FLAG_EVENT);
+    sysevent_setnotification(sysevent_fd, sysevent_token, meshSyncMsgArr[MESH_WIFI_EXTENDER_MODE].sysStr,              &onewifi_xle_extender_mode_asyncid);
     sysevent_set_options(sysevent_fd,     sysevent_token, meshSyncMsgArr[MESH_WIFI_SSID_ADVERTISE].sysStr,            TUPLE_FLAG_EVENT);
     sysevent_setnotification(sysevent_fd, sysevent_token, meshSyncMsgArr[MESH_WIFI_SSID_ADVERTISE].sysStr,            &wifi_ssidAdvert_asyncid);
     sysevent_set_options(sysevent_fd,     sysevent_token, meshSyncMsgArr[MESH_WIFI_RADIO_CHANNEL_MODE].sysStr,        TUPLE_FLAG_EVENT);
@@ -3699,6 +3708,27 @@ static void *Mesh_sysevent_handler(void *data)
                         // We filled our data structure so we can send it off
                         msgQSend(&mMsg);
                     }
+                }
+            }
+            else if (ret_val == MESH_WIFI_EXTENDER_MODE)
+            {
+                MeshError("Received MESH_WIFI_EXTENDER_MODE Notification\n");
+                if ( val[0] != '\0')
+                {
+                    MeshSync mMsg = {0};
+
+                    // Set sync message type
+                    mMsg.msgType = MESH_WIFI_EXTENDER_MODE;
+                    rc = strcpy_s(mMsg.data.onewifiXLEExtenderMode.InterfaceName,
+                        sizeof(mMsg.data.onewifiXLEExtenderMode.InterfaceName), val);
+                    if(rc != EOK)
+                    {
+                            ERR_CHK(rc);
+                            MeshError("Error in copying Interface name\n");
+                    }
+                        MeshError("Received MESH_WIFI_EXTENDER_MODE msgQsend Interface:%s\n",
+                                mMsg.data.onewifiXLEExtenderMode.InterfaceName);
+                        msgQSend(&mMsg);
                 }
             }
             else if (ret_val == MESH_WIFI_AP_SECURITY)
