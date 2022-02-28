@@ -303,6 +303,61 @@ OVS_GetParamBoolValue
      MeshWarning("Unsupported parameter '%s'\n", ParamName);
     return FALSE;
 }
+
+/**********************************************************************
+
+    caller:     owner of this object
+
+    prototype:
+
+        BOOL
+        MeshGREBackhaulCache_GetParamBoolValue
+            (
+                ANSC_HANDLE                 hInsContext,
+                char*                       ParamName,
+                BOOL*                       pBool
+            );
+
+    description:
+
+        This function is called to retrieve Boolean parameter value for RFC MeshGREBackhaulCache
+
+    argument:   ANSC_HANDLE                 hInsContext,
+                The instance handle;
+
+                char*                       ParamName,
+                The parameter name;
+
+                BOOL*                       pBool
+                The buffer of returned boolean value;
+
+    return:     TRUE if succeeded.
+
+**********************************************************************/
+BOOL
+MeshGREBackhaulCache_GetParamBoolValue
+    (
+        ANSC_HANDLE                 hInsContext,
+        char*                       ParamName,
+        BOOL*                       pBool
+    )
+{
+    UNREFERENCED_PARAMETER(hInsContext);
+    errno_t rc = -1;
+    int ind = -1;
+
+    rc = strcmp_s("Enable", strlen("Enable"), ParamName, &ind);
+    ERR_CHK(rc);
+    if ((ind == 0) && (rc == EOK))
+    {
+        *pBool = g_pMeshAgent->CacheEnable;
+        return TRUE;
+    }
+
+    MeshWarning("Unsupported parameter '%s'\n", ParamName);
+    return FALSE;
+}
+
 /**********************************************************************
 
     caller:     owner of this object
@@ -749,6 +804,61 @@ OVS_SetParamBoolValue
     }
     else
      MeshWarning("Unsupported parameter '%s'\n", ParamName);
+    return FALSE;
+}
+
+/**********************************************************************
+
+    caller:     owner of this object
+
+    prototype:
+
+        BOOL
+        MeshGREBackhaulCache_SetParamBoolValue
+            (
+                ANSC_HANDLE                 hInsContext,
+                char*                       ParamName,
+                BOOL                        bValue
+            );
+
+    description:
+
+        This function is called to set BOOL parameter value for RFC MeshGREBackhaulCache
+
+    argument:   ANSC_HANDLE                 hInsContext,
+                The instance handle;
+
+                char*                       ParamName,
+                The parameter name;
+
+                BOOL                        bValue
+                The updated BOOL value;
+
+    return:     TRUE if succeeded.
+
+**********************************************************************/
+BOOL
+MeshGREBackhaulCache_SetParamBoolValue
+    (
+        ANSC_HANDLE                 hInsContext,
+        char*                       ParamName,
+        BOOL                        bValue
+    )
+{
+    UNREFERENCED_PARAMETER(hInsContext);
+    errno_t rc = -1;
+    int ind = -1;
+
+    rc = strcmp_s("Enable", strlen("Enable"), ParamName, &ind);
+    ERR_CHK(rc);
+    if ((ind == 0) && (rc == EOK))
+    {
+        MeshInfo("Cache Status flag set to [%s]\n", bValue ? "true" : "false");
+        Mesh_SetCacheStatus(bValue, false, true);
+        return TRUE;
+    }
+
+    MeshWarning("Unsupported parameter '%s'\n", ParamName);
     return FALSE;
 }
 

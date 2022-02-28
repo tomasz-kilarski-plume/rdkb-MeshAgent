@@ -1935,6 +1935,21 @@ BOOL is_bridge_mode_enabled()
 
 }
 
+void Mesh_setCacheStatusSyscfg(bool enable)
+{
+    int i = 0;
+
+    MeshInfo("%s: Trying to set mesh_cache syscfg to [%s]\n", __FUNCTION__, enable ? "true" : "false");
+    for (i = 0; i < 5; i++)
+    {
+        if (!Mesh_SysCfgSetStr("mesh_cache", (enable ? "true" : "false"), true))
+        {
+            MeshInfo("mesh_cache syscfg set passed in %d attempt\n", i+1);
+            break;
+        }
+    }
+}
+
 bool meshSetMeshRetrySyscfg(bool enable)
 {
     int i = 0;
@@ -2159,6 +2174,23 @@ bool Mesh_SetMeshEthBhaul(bool enable, bool init, bool commitSyscfg)
         }
     }
     return TRUE;
+}
+
+/**
+ * @brief Mesh Cache Status Set Enable/Disable
+ *
+ * This function will enable/disable the Mesh Cache feature
+ */
+void Mesh_SetCacheStatus(bool enable, bool init, bool commitSyscfg)
+{
+    if (init || Mesh_GetEnabled("mesh_cache") != enable)
+    {
+        MeshInfo("%s: Enable:%d, Init:%d, Commit:%d.\n", __FUNCTION__, enable, init, commitSyscfg);
+        if (commitSyscfg)
+            Mesh_setCacheStatusSyscfg(enable);
+        g_pMeshAgent->CacheEnable = enable;
+        Mesh_sendRFCUpdate("MeshGREBackhaulCache.Enable", enable ? "true" : "false", rfc_boolean);
+    }
 }
 
 /**
@@ -2875,6 +2907,38 @@ static void Mesh_SetDefaults(ANSC_HANDLE hThisObject)
               MeshInfo("OVS status error from syscfg , setting default\n");
               Mesh_SetOVS(false,true,true);
            }
+        }
+    }
+
+    out_val[0]='\0';
+    if (Mesh_SysCfgGetStr("mesh_cache", out_val, sizeof(out_val)) != 0)
+    {
+        MeshInfo("Syscfg error, Setting Cache Status to default\n");
+        Mesh_SetCacheStatus(false, true, true);
+    }
+    else
+    {
+        rc = strcmp_s("true", strlen("true"), out_val, &ind);
+        ERR_CHK(rc);
+        if ((ind == 0) && (rc == EOK))
+        {
+            MeshInfo("Setting initial Cache Status to true\n");
+            Mesh_SetCacheStatus(true, true, false);
+        }
+        else
+        {
+            rc = strcmp_s("false", strlen("false"), out_val, &ind);
+            ERR_CHK(rc);
+            if ((ind == 0) && (rc == EOK))
+            {
+                MeshInfo("Setting initial Cache Status to false\n");
+                Mesh_SetCacheStatus(false, true, false);
+            }
+            else
+            {
+                MeshInfo("Cache Status error, setting default\n");
+                Mesh_SetCacheStatus(false, true, true);
+            }
         }
     }
 

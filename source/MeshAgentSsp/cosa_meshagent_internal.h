@@ -34,6 +34,7 @@ _COSA_DATAMODEL_MESHAGENT
     BOOL                        OvsEnable;
     BOOL                        GreAccEnable;
     BOOL                        OpensyncEnable;
+    BOOL                        CacheEnable;
     BOOL                        MeshRetryOptimized;
     UCHAR                       meshUrl[256];
     eMeshWifiStatusType         meshStatus;
