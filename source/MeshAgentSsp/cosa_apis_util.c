@@ -163,9 +163,14 @@ int Mesh_SysCfgGetInt(const char *name)
  **************************************************************************/
 int Mesh_SysCfgSetInt(const char *name, int int_value)
 {
+   unsigned char value[20] = {0};
+   
    int retval=0;
-
-   retval = syscfg_set_u_commit(NULL, name, int_value);
+   sprintf(value, "%d", int_value);
+   if ((retval = syscfg_set(NULL, name, value)) == 0)
+   {
+       syscfg_commit();
+   }
 
    return retval;
 }
