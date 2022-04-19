@@ -195,7 +195,9 @@ MeshSync_MsgItem meshSyncMsgArr[] = {
     {MESH_TUNNEL_SET_VLAN,                  "MESH_TUNNEL_SET_VLAN",                 "tunnel_vlan"},
     {MESH_REDUCED_RETRY,                    "MESH_REDUCED_RETRY",                   "mesh_conn_opt_retry"},
     {MESH_WIFI_SSID_CHANGED,                "MESH_WIFI_SSID_CHANGED",               "wifi_SSIDChanged"},
+    {MESH_WIFI_RADIO_OPERATING_STD,         "MESH_WIFI_RADIO_OPERATING_STD",        "wifi_RadioOperatingStd"},
     {MESH_WIFI_EXTENDER_MODE,               "MESH_WIFI_EXTENDER_MODE",              "onewifi_XLE_Extender_mode"}};
+
 typedef struct
 {
     eMeshIfaceType  mType;
@@ -534,6 +536,16 @@ void Mesh_ProcessSyncMessage(MeshSync rxMsg)
                 (rxMsg.data.wifiRadioChannelMode.acOnlyFlag?"true":"false")
         );
         Mesh_SyseventSetStr(meshSyncMsgArr[MESH_WIFI_RADIO_CHANNEL_MODE].sysStr, cmd, 0, false);
+    }
+    break;
+    case MESH_WIFI_RADIO_OPERATING_STD:
+    {
+        char cmd[256] = {0};
+        sprintf(cmd, "MESH|%d|%s",
+                rxMsg.data.wifiRadioOperatingStd.index,
+                rxMsg.data.wifiRadioOperatingStd.channelMode
+        );
+        Mesh_SyseventSetStr(meshSyncMsgArr[MESH_WIFI_RADIO_OPERATING_STD].sysStr, cmd, 0, false);
     }
     break;
     case MESH_WIFI_SSID_NAME:
@@ -3294,6 +3306,7 @@ static void *Mesh_sysevent_handler(void *data)
     async_id_t wifi_ssidAdvert_asyncid;
     async_id_t wifi_radio_channel_asyncid;
     async_id_t wifi_radio_channel_mode_asyncid;
+    async_id_t wifi_radio_operating_std_asyncid;
     async_id_t wifi_apSecurity_asyncid;
     async_id_t wifi_apKickDevice_asyncid;
     async_id_t wifi_apKickAllDevice_asyncid;
@@ -3318,6 +3331,8 @@ static void *Mesh_sysevent_handler(void *data)
     sysevent_setnotification(sysevent_fd, sysevent_token, meshSyncMsgArr[MESH_WIFI_SSID_ADVERTISE].sysStr,            &wifi_ssidAdvert_asyncid);
     sysevent_set_options(sysevent_fd,     sysevent_token, meshSyncMsgArr[MESH_WIFI_RADIO_CHANNEL_MODE].sysStr,        TUPLE_FLAG_EVENT);
     sysevent_setnotification(sysevent_fd, sysevent_token, meshSyncMsgArr[MESH_WIFI_RADIO_CHANNEL_MODE].sysStr,        &wifi_radio_channel_mode_asyncid);
+    sysevent_set_options(sysevent_fd,     sysevent_token, meshSyncMsgArr[MESH_WIFI_RADIO_OPERATING_STD].sysStr,       TUPLE_FLAG_EVENT);
+    sysevent_setnotification(sysevent_fd, sysevent_token, meshSyncMsgArr[MESH_WIFI_RADIO_OPERATING_STD].sysStr,       &wifi_radio_operating_std_asyncid);
     sysevent_set_options(sysevent_fd,     sysevent_token, meshSyncMsgArr[MESH_WIFI_RADIO_CHANNEL].sysStr,             TUPLE_FLAG_EVENT);
     sysevent_setnotification(sysevent_fd, sysevent_token, meshSyncMsgArr[MESH_WIFI_RADIO_CHANNEL].sysStr,             &wifi_radio_channel_asyncid);
     sysevent_set_options(sysevent_fd,     sysevent_token, meshSyncMsgArr[MESH_WIFI_AP_SECURITY].sysStr,               TUPLE_FLAG_EVENT);
@@ -3576,6 +3591,64 @@ static void *Mesh_sysevent_handler(void *data)
                     }
                 }
             }
+            else if (ret_val == MESH_WIFI_RADIO_OPERATING_STD)
+            {
+                if (val[0] != '\0')
+                {
+                    const char delim[2] = "|";
+                    char *token;
+                    int idx = 0;
+                    bool valFound = false;
+                    bool process = true;
+                    MeshSync mMsg = {0};
+                    mMsg.msgType = MESH_WIFI_RADIO_OPERATING_STD;
+                    token = strtok(val, delim);
+                    while( token != NULL && process)
+                    {
+                        switch (idx)
+                        {
+                        case 0:
+                            rc = strcmp_s("RDK", strlen("RDK"), token, &ind);
+                            ERR_CHK(rc);
+                            if ((ind != 0) && (rc == EOK))
+                            {
+                                process = false;
+                                continue;
+                            } else {
+                                MeshInfo("received notification event %s\n", name);
+                            }
+                            break;
+                        case 1:
+                            MeshInfo("index=%s\n", token);
+                            mMsg.data.wifiRadioChannelMode.index = strtol(token,NULL,10);
+                            valFound = true;
+                            break;
+                        case 2:
+                            MeshInfo("Operating Standard=%s\n", token);
+                            rc = strcpy_s(mMsg.data.wifiRadioChannelMode.channelMode,
+                                    sizeof(mMsg.data.wifiRadioChannelMode.channelMode), token);
+                            if(rc != EOK)
+                            {
+                                ERR_CHK(rc);
+                                MeshError("Error in copying Operating Standard\n");
+                            }
+                            else
+                            {
+                                valFound = true;
+                            }
+                        default:
+                            break;
+                        }
+                        token = strtok(NULL, delim);
+                        idx++;
+                    }
+
+                    if (valFound) {
+                        msgQSend(&mMsg);
+                    }
+                }
+            }
+
             else if (ret_val == MESH_WIFI_SSID_ADVERTISE)
             {
                 // SSID config sysevents will be formatted: ORIG|index|ssid

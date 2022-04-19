@@ -97,6 +97,7 @@ typedef enum {
     MESH_TUNNEL_SET_VLAN,
     MESH_REDUCED_RETRY,
     MESH_WIFI_SSID_CHANGED,
+    MESH_WIFI_RADIO_OPERATING_STD,
     MESH_WIFI_EXTENDER_MODE,
     MESH_SYNC_MSG_TOTAL
 } eMeshSyncType;
@@ -210,6 +211,13 @@ typedef struct _MeshWifiRadioChannelMode {
     uint8_t  acOnlyFlag;           // Is this ac only?
 } MeshWifiRadioChannelMode;
 
+/**
+ * Mesh Sync Wifi Radio Operating Standard change
+ */
+typedef struct _MeshWifiRadioOperatingStd {
+    uint32_t index;                             // Radio index
+    char     channelMode[MAX_CHANNEL_MODE_LEN]; // ChannelMode
+} MeshWifiRadioOperatingStd;
 
 /**
  * Mesh Sync Wifi configuration change message
@@ -385,6 +393,7 @@ typedef struct _MeshSync {
         MeshWifiReset                   wifiReset;
         MeshWifiRadioChannel            wifiRadioChannel;
         MeshWifiRadioChannelMode        wifiRadioChannelMode;
+        MeshWifiRadioOperatingStd       wifiRadioOperatingStd;
         MeshWifiSSIDName                wifiSSIDName;
         MeshWifiSSIDChanged             wifiSSIDChanged;
         MeshWifiXLEExtenderMode         onewifiXLEExtenderMode;
