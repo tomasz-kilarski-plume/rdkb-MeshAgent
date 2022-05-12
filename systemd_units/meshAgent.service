@@ -22,7 +22,7 @@ Description=Mesh Agent service
 ConditionPathExists=/tmp/wifi_initialized
 
 [Service]
-Type=forking
+Type=notify
 Environment="Subsys=eRT."
 Environment="LOG4C_RCPATH=/etc"
 EnvironmentFile=/etc/device.properties

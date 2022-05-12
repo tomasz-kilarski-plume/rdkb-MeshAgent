@@ -18,7 +18,10 @@
 ##########################################################################
 [Unit]
 Description=Mesh Wifi service
-ConditionPathExists=/tmp/wifi_initialized
+# Mesh Service needs
+#  - wifi initialized
+#  - source providing Mesh.State and Mesh.URL
+After=meshAgent.service
 
 [Service]
 Type=oneshot

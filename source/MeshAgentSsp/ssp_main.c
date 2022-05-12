@@ -41,6 +41,7 @@
 #include "print_uptime.h"
 #include <sys/sysinfo.h>
 #include "secure_wrapper.h"
+#include <systemd/sd-daemon.h>
 
 /*----------------------------------------------------------------------------*/
 /*                                   Macros                                   */
@@ -55,8 +56,6 @@ char  g_Subsystem[32] = {0};
 /*----------------------------------------------------------------------------*/
 /*                             Function Prototypes                            */
 /*----------------------------------------------------------------------------*/
-static void daemonize(void);
-
 
 /*----------------------------------------------------------------------------*/
 /*                             External Functions                             */
@@ -150,9 +149,6 @@ int msgBusInit(const char *pComponentName)
 	return 1;
     }
 
-    if ( bRunAsDaemon ) 
-        daemonize();
-
 #ifdef INCLUDE_BREAKPAD
     breakpad_ExceptionHandler();
 #endif
@@ -177,7 +173,8 @@ int msgBusInit(const char *pComponentName)
 
     if ( bRunAsDaemon )
     {
-        return 1; //Failure
+        sd_notify(0, "READY=1");
+        return 1; //RunAsDaemon
     }
     else
     {
@@ -197,57 +194,12 @@ int msgBusInit(const char *pComponentName)
     	exit(1);
     }
     ssp_cancel(gpMeshAgentCfg);
-	return 0; //Success
+    return 0; //Success
 }
 
 /*----------------------------------------------------------------------------*/
 /*                             Internal functions                             */
 /*----------------------------------------------------------------------------*/
-
-
-/**
- * @brief daemonize is a continous loop running in the background waiting to cater component requests.
- */
-static void daemonize(void) {
-	
-	switch (fork()) {
-	case 0:
-		break;
-	case -1:
-		// Error
-		MeshError("MeshAgent: Error daemonizing (fork)! %d - %s\n", errno, strerror(
-				errno));
-		exit(0);
-		break;
-	default:
-		_exit(0);
-	}
-
-	if (setsid() < 	0) {
-		MeshError("MeshAgent: Error demonizing (setsid)! %d - %s\n", errno, strerror(errno));
-		exit(0);
-	}
-
-
-#ifndef  _DEBUG
-
-	fd = open("/dev/null", O_RDONLY);
-	if (fd != 0) {
-		dup2(fd, 0);
-		close(fd);
-	}
-	fd = open("/dev/null", O_WRONLY);
-	if (fd != 1) {
-		dup2(fd, 1);
-		close(fd);
-	}
-	fd = open("/dev/null", O_WRONLY);
-	if (fd != 2) {
-		dup2(fd, 2);
-		close(fd);
-	}
-#endif
-}
 
 int CheckAndGetDevicePropertiesEntry( char *pOutput, int size, char *sDevicePropContent )
 {
